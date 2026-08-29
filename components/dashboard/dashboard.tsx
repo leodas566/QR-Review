@@ -6,7 +6,6 @@ import { motion } from "motion/react"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { StatCards } from "@/components/dashboard/stat-cards"
 import { WeeklyScanChart, MonthlyReviewChart } from "@/components/dashboard/charts"
-import { ProgressTarget } from "@/components/dashboard/progress-target"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { RatingBreakdown } from "@/components/dashboard/rating-breakdown"
 import { getItem, setItem } from "@/lib/store"
@@ -15,16 +14,6 @@ import { getBusinessStats, getBusiness, subscribeToScans } from "@/lib/supabase"
 type Tab = "overview"
 
 const BUSINESS_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
-
-// Pure zero state — never reads from localStorage for stats
-const ZERO_STATE = {
-  totalScans: 0,
-  totalCopied: 0,
-  weeklyScans: [0, 0, 0, 0, 0, 0, 0] as number[],
-  monthlyReviews: [0, 0, 0, 0] as number[],
-  timestamps: [] as string[],
-  ratingBreakdown: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>,
-}
 
 export function Dashboard() {
   const router = useRouter()
@@ -36,14 +25,11 @@ export function Dashboard() {
   // Stats — all start at 0, only Supabase can update them
   const [totalScans, setTotalScans] = useState(0)
   const [totalCopied, setTotalCopied] = useState(0)
-  const [weeklyScans, setWeeklyScans] = useState<number[]>(ZERO_STATE.weeklyScans)
-  const [monthlyReviews, setMonthlyReviews] = useState<number[]>(ZERO_STATE.monthlyReviews)
+  const [weeklyScans, setWeeklyScans] = useState<number[]>([0,0,0,0,0,0,0])
+  const [monthlyReviews, setMonthlyReviews] = useState<number[]>([0,0,0,0])
   const [timestamps, setTimestamps] = useState<string[]>([])
-  const [ratingBreakdown, setRatingBreakdown] = useState<Record<number, number>>(ZERO_STATE.ratingBreakdown)
-
-  // Progress target — these are owner-configured, not real-time stats
-  const [currentReviews] = useState(0)
-  const [targetReviews] = useState(50)
+  const [ratingBreakdown, setRatingBreakdown] = useState<Record<number, number>>({ 1:0, 2:0, 3:0, 4:0, 5:0 })
+  const [weekGrowth, setWeekGrowth] = useState(0)
 
   const applyStats = useCallback((stats: Awaited<ReturnType<typeof getBusinessStats>>) => {
     if (!stats) return
@@ -54,6 +40,18 @@ export function Dashboard() {
     setRatingBreakdown(stats.ratingBreakdown)
     setTimestamps(stats.recentScans.map((s: any) => s.created_at))
     setLastUpdate(Date.now())
+
+    // Real week-over-week growth from actual scan data
+    const curr = stats.currentWeekTotal ?? 0
+    const prev = stats.prevWeekTotal ?? 0
+    if (prev === 0 && curr === 0) {
+      setWeekGrowth(0)
+    } else if (prev === 0) {
+      // First week with data — show as +100% (new activity)
+      setWeekGrowth(100)
+    } else {
+      setWeekGrowth(((curr - prev) / prev) * 100)
+    }
   }, [])
 
   const fetchFromSupabase = useCallback(async () => {
@@ -70,28 +68,21 @@ export function Dashboard() {
   }, [applyStats])
 
   useEffect(() => {
-    // Guard: only run in browser
     if (typeof window === "undefined") return
-
-    // Auth check — only stored value we care about
     if (!getItem("isLoggedIn", false)) {
       router.replace("/login")
       return
     }
-
-    // Load real data from Supabase immediately
     fetchFromSupabase()
     setReady(true)
 
-    // Subscribe to real-time inserts/updates
     const unsub = subscribeToScans(BUSINESS_ID, () => {
       fetchFromSupabase()
     })
-
     return () => unsub()
   }, [router, fetchFromSupabase])
 
-  // Refresh "time ago" labels every 30 s without re-fetching Supabase
+  // Refresh "time ago" labels every 30s
   useEffect(() => {
     const id = setInterval(() => setLastUpdate(Date.now()), 30_000)
     return () => clearInterval(id)
@@ -110,11 +101,7 @@ export function Dashboard() {
     )
   }
 
-  // Week-over-week growth — only meaningful when there is actual data
-  const weekTotal = weeklyScans.reduce((a, b) => a + b, 0)
-  const prevWeekTotal = weeklyScans.slice(0, 3).reduce((a, b) => a + b, 0) // Mon–Wed as proxy
-  const weekGrowth = prevWeekTotal > 0 ? ((weekTotal - prevWeekTotal) / prevWeekTotal) * 100 : 0
-  const weeklyAvg = weeklyScans.length ? weekTotal / weeklyScans.length : 0
+  const weeklyAvg = weeklyScans.reduce((a, b) => a + b, 0) / 7
 
   return (
     <div className="min-h-svh">
@@ -162,7 +149,7 @@ export function Dashboard() {
               </motion.div>
             </header>
 
-            {/* Empty state banner — shown until first real scan */}
+            {/* Empty state — shown until first real scan */}
             {totalScans === 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -189,18 +176,10 @@ export function Dashboard() {
               <MonthlyReviewChart data={monthlyReviews} />
             </div>
 
-            {/* Rating breakdown */}
+            {/* Rating breakdown + Activity side by side */}
             <RatingBreakdown breakdown={ratingBreakdown} totalScans={totalScans} />
 
-            {/* Progress + Activity */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              <ProgressTarget
-                initialCurrent={currentReviews}
-                initialTarget={targetReviews}
-                weeklyAvg={weeklyAvg}
-              />
-              <ActivityFeed key={lastUpdate} timestamps={timestamps} />
-            </div>
+            <ActivityFeed key={lastUpdate} timestamps={timestamps} />
           </motion.div>
         </div>
       </div>

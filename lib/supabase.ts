@@ -114,14 +114,14 @@ export async function getBusinessStats(businessId: string) {
 
   const totalScans = scans.length
   const totalCopied = scans.filter(s => s.review_copied).length
-  
+
   // Rating breakdown
   const ratingBreakdown: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
   scans.forEach(scan => {
     ratingBreakdown[scan.rating] = (ratingBreakdown[scan.rating] || 0) + 1
   })
 
-  // Weekly scans (last 7 days)
+  // Weekly scans (last 7 days) — index 0 = Mon, 6 = Sun of current week
   const now = new Date()
   const weeklyScans = Array(7).fill(0)
   scans.forEach(scan => {
@@ -132,12 +132,27 @@ export async function getBusinessStats(businessId: string) {
     }
   })
 
+  // Previous week scans (days 7–13 ago) — for real growth calculation
+  const prevWeekScans = Array(7).fill(0)
+  scans.forEach(scan => {
+    const scanDate = new Date(scan.created_at)
+    const daysDiff = Math.floor((now.getTime() - scanDate.getTime()) / (1000 * 60 * 60 * 24))
+    if (daysDiff >= 7 && daysDiff < 14) {
+      prevWeekScans[13 - daysDiff]++
+    }
+  })
+
+  const currentWeekTotal = weeklyScans.reduce((a, b) => a + b, 0)
+  const prevWeekTotal = prevWeekScans.reduce((a, b) => a + b, 0)
+
   // Monthly reviews (last 4 months)
   const monthlyReviews = Array(4).fill(0)
   scans.forEach(scan => {
     if (scan.review_copied) {
       const scanDate = new Date(scan.created_at)
-      const monthsDiff = (now.getFullYear() - scanDate.getFullYear()) * 12 + (now.getMonth() - scanDate.getMonth())
+      const monthsDiff =
+        (now.getFullYear() - scanDate.getFullYear()) * 12 +
+        (now.getMonth() - scanDate.getMonth())
       if (monthsDiff < 4) {
         monthlyReviews[3 - monthsDiff]++
       }
@@ -150,6 +165,8 @@ export async function getBusinessStats(businessId: string) {
     ratingBreakdown,
     weeklyScans,
     monthlyReviews,
+    currentWeekTotal,
+    prevWeekTotal,
     recentScans: scans.slice(0, 10),
   }
 }
