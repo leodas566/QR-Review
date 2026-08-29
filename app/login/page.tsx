@@ -67,7 +67,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border border-gold/20 bg-black/40 px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/40"
-              placeholder="owner@thebandrabar.com"
+              placeholder="Enter your email"
             />
           </div>
           <div>
@@ -99,9 +99,7 @@ export default function LoginPage() {
           Sign In
         </button>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Demo: owner@thebandrabar.com / admin123
-        </p>
+
       </motion.form>
     </main>
   )
