@@ -203,9 +203,7 @@ export async function updateBusiness(
   }
 
   return data
-}
-
-// Fetch stats for a specific date (YYYY-MM-DD)
+}// Fetch stats for a specific date (YYYY-MM-DD)
 export async function getStatsByDate(businessId: string, date: string) {
   const start = `${date}T00:00:00.000Z`
   const end   = `${date}T23:59:59.999Z`

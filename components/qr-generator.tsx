@@ -3,30 +3,44 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { QRCodeCanvas } from "qrcode.react"
-import { ChevronLeft, Download, ChevronDown, Check, Save } from "lucide-react"
-import { seedIfEmpty, getItem, setItem } from "@/lib/store"
+import { ChevronLeft, Download, ChevronDown, Check, Save, Loader2 } from "lucide-react"
+import { getBusiness, updateBusiness } from "@/lib/supabase"
+
+const BUSINESS_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
 
 const inputCls =
   "w-full rounded-xl border border-gold/20 bg-black/40 px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/40"
 
 export function QrGenerator() {
-  const [url, setUrl] = useState("https://g.page/r/PLACE_ID_HERE/review")
-  const [barName, setBarName] = useState("The Bandra Bar")
-  const [style, setStyle] = useState<"square" | "rounded">("rounded")
-  const [color, setColor] = useState("#c9a84c")
+  const [url, setUrl]         = useState("")
+  const [barName, setBarName] = useState("")
+  const [style, setStyle]     = useState<"square" | "rounded">("rounded")
+  const [color, setColor]     = useState("#c9a84c")
   const [howToOpen, setHowToOpen] = useState(true)
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved]     = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [loading, setLoading] = useState(true)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
 
+  // Load from Supabase on mount — works on every device
   useEffect(() => {
-    seedIfEmpty()
-    setUrl(getItem("googleReviewURL", "https://g.page/r/PLACE_ID_HERE/review"))
-    setBarName(getItem("barName", "The Bandra Bar"))
+    getBusiness(BUSINESS_ID).then((biz) => {
+      if (biz) {
+        setUrl(biz.google_review_url)
+        setBarName(biz.name)
+      }
+      setLoading(false)
+    })
   }, [])
 
-  const saveSettings = () => {
-    setItem("googleReviewURL", url)
-    setItem("barName", barName)
+  // Save Bar Name + Google Review URL back to Supabase
+  const saveSettings = async () => {
+    setSaving(true)
+    await updateBusiness(BUSINESS_ID, {
+      name: barName,
+      google_review_url: url,
+    })
+    setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -35,16 +49,15 @@ export function QrGenerator() {
     const source = canvasWrapRef.current?.querySelector("canvas")
     if (!source) return
 
-    const pad = 64
+    const pad    = 64
     const labelH = 80
-    const size = source.width
-    const out = document.createElement("canvas")
-    out.width = size + pad * 2
-    out.height = size + pad * 2 + labelH
-    const ctx = out.getContext("2d")
+    const size   = source.width
+    const out    = document.createElement("canvas")
+    out.width    = size + pad * 2
+    out.height   = size + pad * 2 + labelH
+    const ctx    = out.getContext("2d")
     if (!ctx) return
 
-    // background
     ctx.fillStyle = "#0a0a0a"
     if (style === "rounded") {
       const r = 40
@@ -60,24 +73,28 @@ export function QrGenerator() {
       ctx.fillRect(0, 0, out.width, out.height)
     }
 
-    // gold border frame
     ctx.strokeStyle = color
-    ctx.lineWidth = 4
+    ctx.lineWidth   = 4
     ctx.strokeRect(24, 24, out.width - 48, out.height - 48)
-
-    // QR
     ctx.drawImage(source, pad, pad, size, size)
 
-    // label
-    ctx.fillStyle = color
-    ctx.font = "600 34px Georgia, serif"
-    ctx.textAlign = "center"
+    ctx.fillStyle  = color
+    ctx.font       = "600 34px Georgia, serif"
+    ctx.textAlign  = "center"
     ctx.fillText(barName, out.width / 2, size + pad + 50)
 
-    const link = document.createElement("a")
+    const link    = document.createElement("a")
     link.download = `${barName.replace(/\s+/g, "-").toLowerCase()}-review-qr.png`
-    link.href = out.toDataURL("image/png")
+    link.href     = out.toDataURL("image/png")
     link.click()
+  }
+
+  if (loading) {
+    return (
+      <main className="grid min-h-svh place-items-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gold" />
+      </main>
+    )
   }
 
   return (
@@ -103,15 +120,29 @@ export function QrGenerator() {
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
               Google Review URL
             </label>
-            <input className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} />
+            <input
+              className={inputCls}
+              value={url}
+              onChange={(e) => { setUrl(e.target.value); setSaved(false) }}
+            />
           </div>
+
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Bar Name</label>
-            <input className={inputCls} value={barName} onChange={(e) => setBarName(e.target.value)} />
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Bar Name
+            </label>
+            <input
+              className={inputCls}
+              value={barName}
+              onChange={(e) => { setBarName(e.target.value); setSaved(false) }}
+            />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Frame Style</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Frame Style
+              </label>
               <div className="relative">
                 <select
                   value={style}
@@ -125,7 +156,9 @@ export function QrGenerator() {
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">QR Color</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                QR Color
+              </label>
               <div className="flex items-center gap-2 rounded-xl border border-gold/20 bg-black/40 px-3 py-2">
                 <input
                   type="color"
@@ -139,17 +172,21 @@ export function QrGenerator() {
             </div>
           </div>
 
+          {/* Save + Download */}
           <div className="flex gap-3">
             <button
               onClick={saveSettings}
+              disabled={saving}
               className={
                 "flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold transition " +
                 (saved
                   ? "border-gold/60 bg-gold/10 text-gold"
-                  : "border-gold/30 bg-transparent text-gold hover:bg-gold/10")
+                  : "border-gold/30 bg-transparent text-gold hover:bg-gold/10 disabled:opacity-50")
               }
             >
-              {saved ? (
+              {saving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : saved ? (
                 <><Check className="h-4 w-4" /> Saved!</>
               ) : (
                 <><Save className="h-4 w-4" /> Save</>
@@ -162,6 +199,10 @@ export function QrGenerator() {
               <Download className="h-4 w-4" /> Download QR as PNG
             </button>
           </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Saving updates Bar Name &amp; Google Review URL across all devices
+          </p>
         </div>
 
         {/* Live preview */}
