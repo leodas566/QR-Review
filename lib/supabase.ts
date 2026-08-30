@@ -205,7 +205,30 @@ export async function updateBusiness(
   return data
 }
 
-// Real-time subscription
+// Fetch stats for a specific date (YYYY-MM-DD)
+export async function getStatsByDate(businessId: string, date: string) {
+  const start = `${date}T00:00:00.000Z`
+  const end   = `${date}T23:59:59.999Z`
+
+  const { data: scans, error } = await supabase
+    .from('scans')
+    .select('*')
+    .eq('business_id', businessId)
+    .gte('created_at', start)
+    .lte('created_at', end)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching date stats:', error)
+    return null
+  }
+
+  return {
+    scans: scans.length,
+    copied: scans.filter(s => s.review_copied).length,
+    ratings: scans.map(s => s.rating),
+  }
+}
 export function subscribeToScans(businessId: string, callback: (payload: any) => void) {
   const channel = supabase
     .channel(`scans:business_id=eq.${businessId}`)

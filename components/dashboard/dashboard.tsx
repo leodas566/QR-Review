@@ -29,7 +29,6 @@ export function Dashboard() {
   const [monthlyReviews, setMonthlyReviews] = useState<number[]>([0,0,0,0])
   const [timestamps, setTimestamps] = useState<string[]>([])
   const [ratingBreakdown, setRatingBreakdown] = useState<Record<number, number>>({ 1:0, 2:0, 3:0, 4:0, 5:0 })
-  const [weekGrowth, setWeekGrowth] = useState(0)
 
   const applyStats = useCallback((stats: Awaited<ReturnType<typeof getBusinessStats>>) => {
     if (!stats) return
@@ -40,18 +39,6 @@ export function Dashboard() {
     setRatingBreakdown(stats.ratingBreakdown)
     setTimestamps(stats.recentScans.map((s: any) => s.created_at))
     setLastUpdate(Date.now())
-
-    // Real week-over-week growth from actual scan data
-    const curr = stats.currentWeekTotal ?? 0
-    const prev = stats.prevWeekTotal ?? 0
-    if (prev === 0 && curr === 0) {
-      setWeekGrowth(0)
-    } else if (prev === 0) {
-      // First week with data — show as +100% (new activity)
-      setWeekGrowth(100)
-    } else {
-      setWeekGrowth(((curr - prev) / prev) * 100)
-    }
   }, [])
 
   const fetchFromSupabase = useCallback(async () => {
@@ -167,7 +154,6 @@ export function Dashboard() {
             <StatCards
               totalScans={totalScans}
               totalCopied={totalCopied}
-              weekGrowth={totalScans > 0 ? weekGrowth : 0}
             />
 
             {/* Charts */}
