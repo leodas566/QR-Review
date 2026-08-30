@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { QRCodeCanvas } from "qrcode.react"
-import { ChevronLeft, Download, ChevronDown } from "lucide-react"
-import { seedIfEmpty, getItem } from "@/lib/store"
+import { ChevronLeft, Download, ChevronDown, Check, Save } from "lucide-react"
+import { seedIfEmpty, getItem, setItem } from "@/lib/store"
 
 const inputCls =
   "w-full rounded-xl border border-gold/20 bg-black/40 px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/40"
@@ -15,6 +15,7 @@ export function QrGenerator() {
   const [style, setStyle] = useState<"square" | "rounded">("rounded")
   const [color, setColor] = useState("#c9a84c")
   const [howToOpen, setHowToOpen] = useState(true)
+  const [saved, setSaved] = useState(false)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -22,6 +23,13 @@ export function QrGenerator() {
     setUrl(getItem("googleReviewURL", "https://g.page/r/PLACE_ID_HERE/review"))
     setBarName(getItem("barName", "The Bandra Bar"))
   }, [])
+
+  const saveSettings = () => {
+    setItem("googleReviewURL", url)
+    setItem("barName", barName)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
 
   const download = () => {
     const source = canvasWrapRef.current?.querySelector("canvas")
@@ -131,12 +139,29 @@ export function QrGenerator() {
             </div>
           </div>
 
-          <button
-            onClick={download}
-            className="gold-glow flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3 text-sm font-semibold text-primary-foreground transition hover:bg-gold-light"
-          >
-            <Download className="h-4 w-4" /> Download QR as PNG
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={saveSettings}
+              className={
+                "flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 text-sm font-semibold transition " +
+                (saved
+                  ? "border-gold/60 bg-gold/10 text-gold"
+                  : "border-gold/30 bg-transparent text-gold hover:bg-gold/10")
+              }
+            >
+              {saved ? (
+                <><Check className="h-4 w-4" /> Saved!</>
+              ) : (
+                <><Save className="h-4 w-4" /> Save</>
+              )}
+            </button>
+            <button
+              onClick={download}
+              className="gold-glow flex flex-1 items-center justify-center gap-2 rounded-xl bg-gold py-3 text-sm font-semibold text-primary-foreground transition hover:bg-gold-light"
+            >
+              <Download className="h-4 w-4" /> Download QR as PNG
+            </button>
+          </div>
         </div>
 
         {/* Live preview */}
