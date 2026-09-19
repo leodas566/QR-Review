@@ -201,7 +201,7 @@ VALUES (
     'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     'House of Paloma',
     'Bandra West, Mumbai',
-    'https://search.google.com/local/writereview?placeid=ChIJ4TflFcvJ5zsRWP5VIdUk9Qg',
+    'https://search.google.com/local/writereview?placeid=ChIJu6ZBnxTJ5zsRvHMC18xfZnQ',
     'admin@houseofpaloma.com',
     'admin123'
 );
